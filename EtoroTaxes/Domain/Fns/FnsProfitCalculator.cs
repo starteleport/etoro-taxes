@@ -2,33 +2,20 @@ namespace EtoroTaxes.Domain.Fns;
 
 public class FnsProfitCalculator
 {
-    private readonly ITradesProvider _tradesProvider;
-    private readonly IDividendsProvider _dividendsProvider;
     private readonly ICurrencyRateProvider _currencyRateProvider;
 
-    public FnsProfitCalculator(
-        ITradesProvider tradesProvider,
-        IDividendsProvider dividendsProvider,
-        ICurrencyRateProvider currencyRateProvider)
+    public FnsProfitCalculator(ICurrencyRateProvider currencyRateProvider)
     {
-        _tradesProvider = tradesProvider;
-        _dividendsProvider = dividendsProvider;
         _currencyRateProvider = currencyRateProvider;
     }
 
-    public FnsProfitTotal[] Calculate(DateOnly dateFrom, DateOnly dateTo)
+    public ICollection<FnsProfitTotal> CalculateProfits(Trade[] trades, Dividend[] toArray)
     {
-        return GetTradingTotals(dateFrom, dateTo).Concat(GetDividendsTotals(dateFrom, dateTo)).ToArray();
+        return GetTradingTotals(trades).Concat(GetDividendsTotals(toArray)).ToArray();
     }
 
-    private IEnumerable<FnsProfitTotal> GetDividendsTotals(DateOnly dateFrom, DateOnly dateTo)
+    private IEnumerable<FnsProfitTotal> GetDividendsTotals(Dividend[] dividends)
     {
-        // Предполагаем, что данные eToro отсортированы по дате закрытия позиции
-        var dividends = _dividendsProvider.GetDividends()
-            .SkipWhile(t => t.Date > dateTo)
-            .TakeWhile(t => t.Date >= dateFrom)
-            .ToArray();
-
         return dividends
             .Select(
                 d =>
@@ -48,25 +35,20 @@ public class FnsProfitCalculator
                 })
             .GroupBy(tn => tn.Dividend.TaxRate)
             .Select(
-                g => new FnsProfitTotal
-                {
-                    ProfitType = FnsProfitTypes.Dividends,
-                    GrossProfit = g.Sum(tn => tn.Amount),
-                    GrossLoss = 0,
-                    ForeignTaxAmount = g.Sum(tn => tn.TaxAmount),
-                    ForeignTaxRate = g.Key
-                });
+                g => new FnsProfitTotal(
+                    FnsProfitTypes.Dividends,
+                    g.Sum(tn => tn.Amount),
+                    0,
+                    g.Sum(tn => tn.TaxAmount),
+                    g.Key
+                ));
     }
 
 
-    private IEnumerable<FnsProfitTotal> GetTradingTotals(DateOnly dateFrom, DateOnly dateTo)
+    private IEnumerable<FnsProfitTotal> GetTradingTotals(Trade[] trades)
     {
         // Предполагаем, что данные eToro отсортированы по дате закрытия позиции
-        var trades = _tradesProvider.GetTrades()
-            .SkipWhile(t => t.ClosedOn > dateTo)
-            .TakeWhile(t => t.ClosedOn >= dateFrom)
-            .ToArray();
-
+        // Тогда принцип FIFO соблюдается автоматически
         return trades
             .Select(
                 t =>
@@ -88,12 +70,11 @@ public class FnsProfitCalculator
                 })
             .GroupBy(tn => tn.Trade.InstrumentType)
             .Select(
-                g => new FnsProfitTotal
-                {
-                    ProfitType = GetFnsProfitType(g.Key),
-                    GrossProfit = g.Where(tn => tn.NetProfit > 0).Sum(tn => tn.NetProfit),
-                    GrossLoss = g.Where(tn => tn.NetProfit < 0).Sum(tn => tn.NetProfit)
-                });
+                g => new FnsProfitTotal(
+                    GetFnsProfitType(g.Key),
+                    g.Where(tn => tn.NetProfit > 0).Sum(tn => tn.NetProfit),
+                    -g.Where(tn => tn.NetProfit < 0).Sum(tn => tn.NetProfit)
+                ));
     }
 
     private static FnsProfitTypes GetFnsProfitType(InstrumentTypes instrumentType)

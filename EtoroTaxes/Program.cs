@@ -12,13 +12,19 @@ var closedPositionsFileOption = new Option<FileInfo>(
     "--closed-positions",
     "Closed positions CSV report");
 
+closedPositionsFileOption.LegalFilePathsOnly().AddAlias("-c");
+
 var dividendsFileOption = new Option<FileInfo>(
     "--dividends",
-    "Closed positions CSV report");
+    "Dividends CSV report");
+
+dividendsFileOption.LegalFilePathsOnly().AddAlias("-d");
 
 var currencyRatesFileOption = new Option<FileInfo>(
     "--currency-rates",
     "CBR currency rates CSV report. Download for your dates from https://www.cbr.ru/currency_base/dynamics/.");
+
+currencyRatesFileOption.LegalFilePathsOnly().AddAlias("-r");
 
 var etoroCsvCultureOption = new Option<string>(
     "--culture",
@@ -29,7 +35,8 @@ var rootCommand = new RootCommand("Calculate taxes from eToro CSV reports")
 {
     closedPositionsFileOption,
     dividendsFileOption,
-    etoroCsvCultureOption
+    etoroCsvCultureOption,
+    currencyRatesFileOption
 };
 
 rootCommand.SetHandler(
@@ -42,7 +49,7 @@ rootCommand.SetHandler(
             CultureInfo.GetCultureInfo(culture));
 
         using var etoroDividendsCsvStream = File.OpenRead(dividends.FullName);
-        var dividendProvider = new EtoroDividendsCsvDividendsProvider(
+        var dividendsProvider = new EtoroDividendsCsvDividendsProvider(
             etoroDividendsCsvStream,
             Currencies.USD,
             CultureInfo.GetCultureInfo(culture));
@@ -50,8 +57,24 @@ rootCommand.SetHandler(
         using var cbrSingleCurrencyCsvStream = File.OpenRead(currencyRates.FullName);
         var currencyRatesProvider = new CbrSingleCurrencyCsvCurrencyRateProvider(cbrSingleCurrencyCsvStream, Currencies.USD);
 
-        var fnsProfitCalculator = new FnsProfitCalculator(tradesProvider, dividendProvider, currencyRatesProvider);
-        var profits = fnsProfitCalculator.Calculate(new(2020, 1, 1), new(2020, 12, 31));
+        var fnsProfitCalculator = new FnsProfitCalculator(currencyRatesProvider);
+
+        DateOnly dateFrom = new(2021, 1, 1);
+        DateOnly dateTo = new(2021, 12, 31);
+
+        var profits = fnsProfitCalculator.CalculateProfits(
+            tradesProvider.GetTrades()
+                .SkipWhile(t => t.ClosedOn > dateTo)
+                .TakeWhile(t => t.ClosedOn >= dateFrom)
+                .ToArray(),
+            dividendsProvider.GetDividends()
+                .SkipWhile(t => t.Date > dateTo)
+                .TakeWhile(t => t.Date >= dateFrom)
+                .ToArray());
+
+        var deductionCalculator = new FnsDeductionCalculator();
+
+        var deductions = deductionCalculator.CalculateDeductions(profits);
 
         foreach (var profit in profits)
         {
@@ -70,6 +93,19 @@ rootCommand.SetHandler(
                     $"Доход: {profit.GrossProfit:F}, " +
                     $"Налог, уплаченный не в РФ: {profit.ForeignTaxAmount:F} ({profit.ForeignTaxRate * 100}%), ");
             }
+        }
+
+        if (!deductions.Any())
+        {
+            Console.WriteLine("Вычеты отсутствуют.");
+        }
+
+        foreach (var deduction in deductions)
+        {
+            Console.WriteLine(
+                $"[{deduction.ProfitType:D}] " +
+                $"Код вычета: {deduction.Type:D}, " +
+                $"Сумма к вычету: {deduction.Amount:F}");
         }
     }, closedPositionsFileOption, dividendsFileOption, etoroCsvCultureOption, currencyRatesFileOption);
 
