@@ -28,39 +28,42 @@ public class FnsDeductionCalculator
                     {
                         ProfitType = FnsProfitTypes.NonStockOrIndexDerivatives,
                         Type = FnsTaxDeductionTypes.NonStockOrDerivativesExpenses,
-                        Amount = nonStocksDeduction
+                        DeductionAmount = nonStocksDeduction,
+                        ProfitBeforeDeduction = nonStockOrIndexDerivatives.GrossProfit
                     });
             }
         }
 
         if (stockOrIndexDerivatives != null)
         {
+            var availableDeductions = new[]
+                {
+                    (FnsTaxDeductionTypes.NonStockOrDerivativesLossesReducingTaxableBaseForStockOrDerivatives,
+                        unallocatedNonStocksDeduction),
+                    (FnsTaxDeductionTypes.StockOrDerivativesExpenses, stockOrIndexDerivatives.GrossLoss)
+                }.Where(d => d.Item2 > 0)
+                .OrderByDescending(d => d.Item2);
+
             decimal undeductedStocksProfit = stockOrIndexDerivatives.GrossProfit;
-            if (stockOrIndexDerivatives.GrossLoss > 0)
+            foreach (var deduction in availableDeductions)
             {
-                var stocksDeduction = Math.Min(stockOrIndexDerivatives.GrossLoss, stockOrIndexDerivatives.GrossProfit);
-                undeductedStocksProfit = Math.Max(0, undeductedStocksProfit - stocksDeduction);
-
-                if (stocksDeduction > 0)
+                if (undeductedStocksProfit == 0)
                 {
-                    result.Add(
-                        new()
-                        {
-                            ProfitType = FnsProfitTypes.StockOrIndexDerivatives,
-                            Type = FnsTaxDeductionTypes.StockOrDerivativesExpenses,
-                            Amount = stocksDeduction
-                        });
+                    break;
                 }
-            }
 
-            if (undeductedStocksProfit > 0 && unallocatedNonStocksDeduction > 0)
-            {
-                result.Add(new()
-                {
-                    ProfitType = FnsProfitTypes.StockOrIndexDerivatives,
-                    Type = FnsTaxDeductionTypes.NonStockOrDerivativesLossesReducingTaxableBaseForStockOrDerivatives,
-                    Amount = Math.Min(undeductedStocksProfit, unallocatedNonStocksDeduction)
-                });
+                var thisDeductionAmount = Math.Min(undeductedStocksProfit, deduction.Item2);
+
+                result.Add(
+                    new()
+                    {
+                        ProfitType = FnsProfitTypes.StockOrIndexDerivatives,
+                        Type = deduction.Item1,
+                        DeductionAmount = thisDeductionAmount,
+                        ProfitBeforeDeduction = undeductedStocksProfit
+                    });
+
+                undeductedStocksProfit -= thisDeductionAmount;
             }
         }
 

@@ -59,8 +59,8 @@ rootCommand.SetHandler(
 
         var fnsProfitCalculator = new FnsProfitCalculator(currencyRatesProvider);
 
-        DateOnly dateFrom = new(2021, 1, 1);
-        DateOnly dateTo = new(2021, 12, 31);
+        DateOnly dateFrom = new(2020, 1, 1);
+        DateOnly dateTo = new(2020, 12, 31);
 
         var profits = fnsProfitCalculator.CalculateProfits(
             tradesProvider.GetTrades()
@@ -72,9 +72,7 @@ rootCommand.SetHandler(
                 .TakeWhile(t => t.Date >= dateFrom)
                 .ToArray());
 
-        var deductionCalculator = new FnsDeductionCalculator();
-
-        var deductions = deductionCalculator.CalculateDeductions(profits);
+        Console.WriteLine("Информация о доходах:");
 
         foreach (var profit in profits)
         {
@@ -91,21 +89,22 @@ rootCommand.SetHandler(
                 Console.WriteLine(
                     $"[{profit.ProfitType:D}] " +
                     $"Доход: {profit.GrossProfit:F}, " +
-                    $"Налог, уплаченный не в РФ: {profit.ForeignTaxAmount:F} ({profit.ForeignTaxRate * 100}%), ");
+                    $"Налог, уплаченный не в РФ: {profit.ForeignTaxAmount:F} ({profit.ForeignTaxRate * 100}%)");
             }
         }
 
-        if (!deductions.Any())
-        {
-            Console.WriteLine("Вычеты отсутствуют.");
-        }
+        var deductionCalculator = new FnsDeductionCalculator();
 
-        foreach (var deduction in deductions)
+        var deductions = deductionCalculator.CalculateDeductions(profits);
+
+        var fnsDeclarationItemProvider = new FnsDeclarationItemsProvider();
+        var fnsDeclarationItems = fnsDeclarationItemProvider.GetDeclarationItems(profits, deductions);
+
+        Console.WriteLine("\nПредлагаемые строки для декларации:");
+
+        foreach (var declarationItem in fnsDeclarationItems)
         {
-            Console.WriteLine(
-                $"[{deduction.ProfitType:D}] " +
-                $"Код вычета: {deduction.Type:D}, " +
-                $"Сумма к вычету: {deduction.Amount:F}");
+            Console.WriteLine(declarationItem.AsString());
         }
     }, closedPositionsFileOption, dividendsFileOption, etoroCsvCultureOption, currencyRatesFileOption);
 
