@@ -1,6 +1,6 @@
 namespace EtoroTaxes.Domain;
 
-public class Trade
+public class Trade : IHaveOperations
 {
     public string Id { get; set; }
     public TradeTypes Type { get; set; }
@@ -15,11 +15,9 @@ public class Trade
     public DateOnly OpenedOn { get; set; }
     public DateOnly ClosedOn { get; set; }
 
-    public decimal GetNetProfitInRub(decimal openRate, decimal closeRate)
+    public IEnumerable<Operation> GetOperations()
     {
-        var openAmountInRub = OpenAmount * openRate;
-        var closeAmountInRub = (OpenAmount + Profit) * closeRate;
-
-        return closeAmountInRub - openAmountInRub;
+        yield return new(OpenedOn, -OpenAmount, Currency);
+        yield return new(ClosedOn, OpenAmount + Profit, Currency);
     }
 }

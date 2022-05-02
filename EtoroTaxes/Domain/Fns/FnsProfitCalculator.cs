@@ -9,12 +9,12 @@ public class FnsProfitCalculator
         _currencyRateProvider = currencyRateProvider;
     }
 
-    public ICollection<FnsProfitTotal> CalculateProfits(Trade[] trades, Dividend[] toArray)
+    public ICollection<FnsProfitTotal> CalculateProfits(ICollection<Trade> trades, ICollection<Dividend> dividends)
     {
-        return GetTradingTotals(trades).Concat(GetDividendsTotals(toArray)).ToArray();
+        return GetTradingTotals(trades).Concat(GetDividendsTotals(dividends)).ToArray();
     }
 
-    private IEnumerable<FnsProfitTotal> GetDividendsTotals(Dividend[] dividends)
+    private IEnumerable<FnsProfitTotal> GetDividendsTotals(ICollection<Dividend> dividends)
     {
         return dividends
             .Select(
@@ -45,7 +45,7 @@ public class FnsProfitCalculator
     }
 
 
-    private IEnumerable<FnsProfitTotal> GetTradingTotals(Trade[] trades)
+    private IEnumerable<FnsProfitTotal> GetTradingTotals(ICollection<Trade> trades)
     {
         // Предполагаем, что данные eToro отсортированы по дате закрытия позиции
         // Тогда принцип FIFO соблюдается автоматически
@@ -66,7 +66,14 @@ public class FnsProfitCalculator
                         throw new($"No rate for {t.ClosedOn}");
                     }
 
-                    return new {Trade = t, NetProfit = t.GetNetProfitInRub(openRate.Value, closeRate.Value)};
+                    var netProfit = t.GetOperations().Sum(
+                        o =>
+                        {
+                            var rate = _currencyRateProvider.GetRateToRub(o.Currency, o.Date);
+                            return o.Amount * rate;
+                        }) ?? 0;
+
+                    return new {Trade = t, NetProfit = netProfit};
                 })
             .GroupBy(tn => tn.Trade.InstrumentType)
             .Select(
