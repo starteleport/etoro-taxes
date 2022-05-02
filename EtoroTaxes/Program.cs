@@ -1,6 +1,7 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
 using System.CommandLine;
+using System.CommandLine.Parsing;
 using System.Globalization;
 using EtoroTaxes.Domain;
 using EtoroTaxes.Domain.Fns;
@@ -31,16 +32,32 @@ var etoroCsvCultureOption = new Option<string>(
     () => "ru-ru",
     "Culture for eToro CSV reports");
 
+var dateFromOption = new Option<DateTime>(
+    "--date-from",
+    description: "Date to calculate from");
+
+var dateToOption = new Option<DateTime>(
+    "--date-to",
+    description: "Date to calculate to");
+
 var rootCommand = new RootCommand("Calculate taxes from eToro CSV reports")
 {
     closedPositionsFileOption,
     dividendsFileOption,
     etoroCsvCultureOption,
-    currencyRatesFileOption
+    currencyRatesFileOption,
+    dateFromOption,
+    dateToOption
 };
 
 rootCommand.SetHandler(
-    (FileInfo closedPositions, FileInfo dividends, string culture, FileInfo currencyRates) =>
+    (
+        FileInfo closedPositions,
+        FileInfo dividends,
+        string culture,
+        FileInfo currencyRates,
+        DateTime dateTimeFrom,
+        DateTime dateTimeTo) =>
     {
         using var etoroClosedTradesCsvStream = File.OpenRead(closedPositions.FullName);
         var tradesProvider = new EtoroClosedPositionsCsvTradesProvider(
@@ -55,12 +72,13 @@ rootCommand.SetHandler(
             CultureInfo.GetCultureInfo(culture));
 
         using var cbrSingleCurrencyCsvStream = File.OpenRead(currencyRates.FullName);
-        var currencyRatesProvider = new CbrSingleCurrencyCsvCurrencyRateProvider(cbrSingleCurrencyCsvStream, Currencies.USD);
+        var currencyRatesProvider =
+            new CbrSingleCurrencyCsvCurrencyRateProvider(cbrSingleCurrencyCsvStream, Currencies.USD);
 
         var fnsProfitCalculator = new FnsProfitCalculator(currencyRatesProvider);
 
-        DateOnly dateFrom = new(2020, 1, 1);
-        DateOnly dateTo = new(2020, 12, 31);
+        var dateFrom = new DateOnly(dateTimeFrom.Year, dateTimeFrom.Month, dateTimeFrom.Day);
+        var dateTo = new DateOnly(dateTimeTo.Year, dateTimeTo.Month, dateTimeTo.Day);
 
         var profits = fnsProfitCalculator.CalculateProfits(
             tradesProvider.GetTrades()
@@ -106,6 +124,12 @@ rootCommand.SetHandler(
         {
             Console.WriteLine(declarationItem.AsString());
         }
-    }, closedPositionsFileOption, dividendsFileOption, etoroCsvCultureOption, currencyRatesFileOption);
+    },
+    closedPositionsFileOption,
+    dividendsFileOption,
+    etoroCsvCultureOption,
+    currencyRatesFileOption,
+    dateFromOption,
+    dateToOption);
 
 return rootCommand.Invoke(args);
