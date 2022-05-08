@@ -36,12 +36,24 @@ public class FnsProfitTotal
         ForeignTaxRate = foreignTaxRate;
     }
 
-    public FnsProfitTypes ProfitType { get; set; }
-    public decimal GrossProfit { get; set; }
-    public decimal GrossLoss { get; set; }
+    public FnsProfitTypes ProfitType { get; }
+    public decimal GrossProfit { get; }
+    public decimal GrossLoss { get; }
 
     public decimal NetProfit => GrossProfit - GrossLoss;
 
-    public decimal ForeignTaxAmount { get; set; }
-    public decimal ForeignTaxRate { get; set; }
+    public decimal ForeignTaxAmount { get; }
+    public decimal ForeignTaxRate { get; }
+
+    public string AsString()
+    {
+        var commonPart = $"[{ProfitType:D}] Доход: {GrossProfit:F}, ";
+
+        if (ProfitType != FnsProfitTypes.Dividends)
+        {
+            return $"{commonPart}Расход: {GrossLoss:F}, Прибыль: {NetProfit:F}";
+        }
+
+        return $"{commonPart}Налог, уплаченный не в РФ: {ForeignTaxAmount:F} ({ForeignTaxRate * 100}%)";
+    }
 }

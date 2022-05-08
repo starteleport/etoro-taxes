@@ -17,7 +17,7 @@ public class FnsTaxDeclarationItem
 
         if (ProfitType == FnsProfitTypes.Dividends)
         {
-            return commonPart + $"Налог, уплаченный не в РФ: {ForeignTaxAmount:F} ({ForeignTaxRate * 100}%)";
+            return $"{commonPart}Налог, уплаченный не в РФ: {ForeignTaxAmount:F} ({ForeignTaxRate * 100}%)";
         }
 
         var deductionPart = DeductionType != null
