@@ -37,7 +37,9 @@ public static class Cli
 
         var currencyRatesFileOption = new Option<FileInfo>(
             "--currency-rates",
-            "CBR currency rates CSV report. Download for your dates from https://www.cbr.ru/currency_base/dynamics/.");
+            "CBR currency rates CSV report. Download for your dates from " +
+            "https://www.cbr.ru/currency_base/dynamics/. Be sure to include one week of the previous year into report " +
+            "because currency rates for New Year holidays are set on the last week of the previous year.");
 
         currencyRatesFileOption.LegalFilePathsOnly().AddAlias("-r");
         currencyRatesFileOption.AddValidator(
