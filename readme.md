@@ -8,8 +8,7 @@
 2. Сохранить листы "Закрытые позиции" и "Дивиденды" в CSV с заголовками. Если пользуетесь Numbers, нужно сделать экспорт в CSV, выбрав "Сохранить каждую таблицу в отдельный файл".
 3. Скачать с сайта ЦБ РФ [отчёт](https://www.cbr.ru/currency_base/dynamics/) в формате CSV о курсах валют за год. Важно: захватите последнюю неделю декабря предыдущего года, т.к. курс на новогодние праздники устанавливается на последней неделе декабря.
 4. Перейти в директорию `EtoroTaxes`
-5. Запустить приложение: `dotnet run -- -c <path_to_closed_positions_csv> -d <path_to_dividend_sheet_csv> -r <path_to_CBR_report> --date-from 2020.01.01 --date-to 2020.12.31 --culture ru-ru
-`
+5. Запустить приложение: `dotnet run -- -c <path_to_closed_positions_csv> -d <path_to_dividend_sheet_csv> -r <path_to_CBR_report> --date-from 2020.01.01 --date-to 2020.12.31`
 
 ## Нюанс
 
